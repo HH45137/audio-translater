@@ -69,7 +69,7 @@ def qwen_translate(user_input):
     # 更严格的生成参数（关键修改）
     output = llm(
         prompt,
-        max_tokens=4096,  # 大幅缩短长度限制
+        max_tokens=1024,  # 大幅缩短长度限制
         temperature=0,  # 完全确定性输出
         top_k=1,  # 仅选择最佳token
         stop=["<|im_end|>"],
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     llm = Llama(
         model_path=Parameter.LLM_PATH,
         n_gpu_layers=-1,
-        n_ctx=8192,
+        n_ctx=4096,
         verbose=False,
         seed=1818,
         n_threads=Parameter.WORK_THREADS,
