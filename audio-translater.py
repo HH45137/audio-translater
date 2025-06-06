@@ -134,12 +134,18 @@ def find_files_with_suffix(root_dir, suffix):
 
 
 def delete_file(file_path):
-    # 检查文件夹是否存在
+    # 检查路径是否存在
     if os.path.exists(file_path):
-        shutil.rmtree(file_path)
-        print(f"文件 {file_path} 已被删除。")
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+            print(f"文件 {file_path} 已被删除。")
+        elif os.path.isdir(file_path):
+            shutil.rmtree(file_path)
+            print(f"文件夹 {file_path} 已被删除。")
+        else:
+            print(f"{file_path} 既不是文件也不是文件夹。")
     else:
-        print(f"文件 {file_path} 不存在。")
+        print(f"{file_path} 不存在。")
 
 
 if __name__ == "__main__":
@@ -232,6 +238,7 @@ if __name__ == "__main__":
         os.makedirs(dirpath, exist_ok=True)  # 创建目录，存在则忽略
 
         json_results[idx]['out_file'] = out_path
+
         tts_text = json_results[idx]['tts_text']
 
         # 循环结束后再写回文件
