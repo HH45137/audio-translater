@@ -5,13 +5,38 @@ import re
 import shutil
 import subprocess
 
+import librosa
+import soundfile as sf
 from llama_cpp import Llama
+from pydub.utils import mediainfo
 
 import Parameter
 
 # 声明全局变量
 llm = None
 BAD_TOKENS = []
+
+
+def get_audio_duration(filepath):
+    info = mediainfo(filepath)
+    return float(info['duration'])
+
+
+def resize_audio(input_path, output_path, target_duration_sec):
+    y, sr = librosa.load(input_path, sr=None)
+    current_duration = librosa.get_duration(y=y, sr=sr)
+    rate = current_duration / target_duration_sec
+
+    # 适配不同 librosa 版本
+    try:
+        y_stretched = librosa.effects.time_stretch(y, rate=rate)
+    except Exception:
+        # 老版本需要先stft
+        y_stft = librosa.stft(y)
+        y_stretched_stft = librosa.effects.time_stretch(y_stft, rate=rate)
+        y_stretched = librosa.istft(y_stretched_stft)
+
+    sf.write(output_path, y_stretched, sr)
 
 
 def qwen_translate(user_input):
@@ -267,6 +292,12 @@ if __name__ == "__main__":
             ['python', './TTS.py']
             + tts_args
         )
+
+    # 获取音频秒数
+    for item in json_results:
+        item['audio_seconds'] = get_audio_duration(item['in_file'])  # 这里获取了秒数，应该是float
+        resize_audio(item['out_file'], item['out_file'], item['audio_seconds'])  # 直接传float，不加[]
+        print(f'文件 {item["out_file"]} 已适配原速度\n')
 
     # 循环结束后再写回文件
     with open(Parameter.JSON_PATH, "w", encoding="utf-8") as f:

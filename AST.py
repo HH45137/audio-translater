@@ -487,7 +487,8 @@ def main():
                 'in_file': wave_filename,
                 'ast_text': result,
                 'tts_text': '',
-                'out_file': ''
+                'out_file': '',
+                'audio_seconds': 0
             }
         )
         print("-" * 10)
