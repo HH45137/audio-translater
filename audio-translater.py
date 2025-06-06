@@ -7,27 +7,6 @@ from llama_cpp import Llama
 
 import Parameter
 
-os.makedirs(Parameter.OUTPUT_DIR, exist_ok=True)
-
-# 全局加载模型
-llm = Llama(
-    model_path=Parameter.LLM_PATH,
-    n_gpu_layers=-1,
-    n_ctx=8192,
-    verbose=False,
-    seed=1919,
-    n_threads=Parameter.WORK_THREADS,
-    n_batch=512,
-    use_mmap=True,
-    use_mlock=True
-)
-
-# 修复：使用字符串编码而非字节字面值
-BAD_TOKENS = []
-for word in ["think>", "思考", "好的", "现在", "首先", "需要", "处理"]:
-    BAD_TOKENS.extend(llm.tokenize(word.encode('utf-8')))
-BAD_TOKENS = list(set(BAD_TOKENS))  # 去重
-
 
 def qwen_translate(user_input):
     # 精简严格的系统提示（关键修改）
@@ -142,6 +121,28 @@ def redirect_path(path, anchor_folder):
 
 
 if __name__ == "__main__":
+    # ------------------ 初始化 ------------------
+    os.makedirs(Parameter.OUTPUT_DIR, exist_ok=True)
+
+    # 全局加载模型
+    llm = Llama(
+        model_path=Parameter.LLM_PATH,
+        n_gpu_layers=-1,
+        n_ctx=8192,
+        verbose=False,
+        seed=1919,
+        n_threads=Parameter.WORK_THREADS,
+        n_batch=512,
+        use_mmap=True,
+        use_mlock=True
+    )
+
+    # 修复：使用字符串编码而非字节字面值
+    BAD_TOKENS = []
+    for word in ["think>", "思考", "好的", "现在", "首先", "需要", "处理"]:
+        BAD_TOKENS.extend(llm.tokenize(word.encode('utf-8')))
+    BAD_TOKENS = list(set(BAD_TOKENS))  # 去重
+
     ast_input_files = [
         r"E:\MyDL\HL2-EP2-Sound\sound\vo\outland_12a\launch\al_launch_gonnawork.wav",
         r"E:\MyDL\HL2-EP2-Sound\sound\vo\outland_12a\launch\eli_launch_moan16.wav",
