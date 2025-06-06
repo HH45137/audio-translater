@@ -1,6 +1,8 @@
+import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 
 from llama_cpp import Llama
@@ -117,11 +119,43 @@ def redirect_path(path, anchor_folder):
         new_path = os.path.join(*parts[idx:])
         return new_path
     else:
-        return norm_p
+        # 返回文件名而不是绝对路径
+        return os.path.basename(norm_p)
+
+
+def find_files_with_suffix(root_dir, suffix):
+    result = []
+    for entry in os.scandir(root_dir):
+        if entry.is_file() and entry.name.endswith(suffix):
+            result.append(os.path.abspath(entry.path))
+        elif entry.is_dir():
+            result.extend(find_files_with_suffix(entry.path, suffix))
+    return result
+
+
+def delete_file(file_path):
+    # 检查文件夹是否存在
+    if os.path.exists(file_path):
+        shutil.rmtree(file_path)
+        print(f"文件 {file_path} 已被删除。")
+    else:
+        print(f"文件 {file_path} 不存在。")
 
 
 if __name__ == "__main__":
     # ------------------ 初始化 ------------------
+    # 首先删除旧的json
+    delete_file(Parameter.JSON_PATH)
+
+    parser = argparse.ArgumentParser(description="Audio auto translater script")
+    parser.add_argument('--search-dir', type=str, help='要搜索的根目录')
+    args = parser.parse_args()
+    Parameter.SEARCH_DIR = args.search_dir
+    if not Parameter.SEARCH_DIR or not os.path.exists(Parameter.SEARCH_DIR):
+        print("Please fill in the correct path!\n")
+        exit(0)
+    print(f"Search path: {Parameter.SEARCH_DIR}\n")
+
     os.makedirs(Parameter.OUTPUT_DIR, exist_ok=True)
 
     # 全局加载模型
@@ -143,15 +177,11 @@ if __name__ == "__main__":
         BAD_TOKENS.extend(llm.tokenize(word.encode('utf-8')))
     BAD_TOKENS = list(set(BAD_TOKENS))  # 去重
 
-    ast_input_files = [
-        r"E:\MyDL\HL2-EP2-Sound\sound\vo\outland_12a\launch\al_launch_gonnawork.wav",
-        r"E:\MyDL\HL2-EP2-Sound\sound\vo\outland_12a\launch\eli_launch_moan16.wav",
-        r"E:\MyDL\HL2-EP2-Sound\sound\vo\outland_12a\launch\eli_launch_momenttoosoon01.wav",
-    ]
+    ast_input_files = find_files_with_suffix(Parameter.SEARCH_DIR, '.wav')
 
     tts_output_files = ast_input_files.copy()
     for idx in range(len(tts_output_files)):
-        tts_output_files[idx] = Parameter.OUTPUT_DIR + redirect_path(tts_output_files[idx], 'sound')
+        tts_output_files[idx] = os.path.join(Parameter.OUTPUT_DIR, redirect_path(tts_output_files[idx], 'sound'))
     print(tts_output_files)
 
     # ------------------ 执行语音识别文字 ------------------
@@ -161,11 +191,14 @@ if __name__ == "__main__":
         f'--decoder={Parameter.AST_DIR}/decoder-epoch-34-avg-19.onnx',
         f'--joiner={Parameter.AST_DIR}/joiner-epoch-34-avg-19.onnx'
     ]
-    subprocess.run(
-        ['python', './AST.py']
-        + ast_args
-        + ast_input_files
-    )
+
+    for idx in range(0, len(ast_input_files), 5):
+        batch = ast_input_files[idx:idx + 5]
+        subprocess.run(
+            ['python', './AST.py']
+            + ast_args
+            + batch
+        )
 
     # ------------------ 执行翻译 ------------------
     with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
@@ -191,7 +224,7 @@ if __name__ == "__main__":
     with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
         json_results = json.load(f)
 
-    for idx in range(len(json_results)):
+    for idx in range(len(json_results) - 1):
         specker_id = 50
         out_path = tts_output_files[idx]
 
@@ -218,7 +251,7 @@ if __name__ == "__main__":
             f'--output-filename={out_path}',
             f'{tts_text}'
         ]
-        subprocess.run(
-            ['python', './TTS.py']
-            + tts_args
-        )
+        # subprocess.run(
+        #     ['python', './TTS.py']
+        #     + tts_args
+        # )

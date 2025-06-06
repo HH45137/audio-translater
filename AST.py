@@ -502,8 +502,20 @@ def main():
         f"Real time factor (RTF): {elapsed_seconds:.3f}/{total_duration:.3f} = {rtf:.3f}"
     )
 
+    import os
+
+    if os.path.exists(Parameter.JSON_PATH):
+        with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
+            history = json.load(f)
+        if not isinstance(history, list):
+            history = []
+    else:
+        history = []
+
+    history.extend(ret_results)
+
     with open(Parameter.JSON_PATH, "w", encoding="utf-8") as f:
-        json.dump(ret_results, f, ensure_ascii=False, indent=4)
+        json.dump(history, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
