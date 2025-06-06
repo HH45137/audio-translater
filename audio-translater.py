@@ -264,6 +264,7 @@ if __name__ == "__main__":
         json_results = json.load(f)
 
     for idx in range(len(json_results)):
+        talk_speed = 0.5
         specker_id = 50
         out_path = tts_output_files[idx]
 
@@ -284,6 +285,7 @@ if __name__ == "__main__":
             f'--kokoro-lexicon={Parameter.TTS_DIR}/lexicon-us-en.txt,{Parameter.TTS_DIR}/lexicon-zh.txt',
             f'--num-threads={Parameter.WORK_THREADS}',
             f'--sid={specker_id}',
+            f'--speed={talk_speed}',
             f'--output-filename={out_path}',
             f'{tts_text}'
         ]
