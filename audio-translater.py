@@ -9,8 +9,13 @@ from llama_cpp import Llama
 
 import Parameter
 
+# 声明全局变量
+llm = None
+BAD_TOKENS = []
+
 
 def qwen_translate(user_input):
+    global llm, BAD_TOKENS
     # 精简严格的系统提示（关键修改）
     system_msg = """你是一个专业翻译引擎，严格遵循以下规则：
 1. 修正语音识别错误
@@ -125,11 +130,14 @@ def redirect_path(path, anchor_folder):
 
 def find_files_with_suffix(root_dir, suffix):
     result = []
-    for entry in os.scandir(root_dir):
-        if entry.is_file() and entry.name.endswith(suffix):
-            result.append(os.path.abspath(entry.path))
-        elif entry.is_dir():
-            result.extend(find_files_with_suffix(entry.path, suffix))
+    try:
+        for entry in os.scandir(root_dir):
+            if entry.is_file() and entry.name.endswith(suffix):
+                result.append(os.path.abspath(entry.path))
+            elif entry.is_dir():
+                result.extend(find_files_with_suffix(entry.path, suffix))
+    except Exception as e:
+        print(f"访问 {root_dir} 时出错: {e}")
     return result
 
 
@@ -177,7 +185,7 @@ if __name__ == "__main__":
         use_mlock=True
     )
 
-    # 修复：使用字符串编码而非字节字面值
+    # BAD_TOKENS 初始化
     BAD_TOKENS = []
     for word in ["think>", "思考", "好的", "现在", "首先", "需要", "处理"]:
         BAD_TOKENS.extend(llm.tokenize(word.encode('utf-8')))
@@ -230,7 +238,7 @@ if __name__ == "__main__":
     with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
         json_results = json.load(f)
 
-    for idx in range(len(json_results) - 1):
+    for idx in range(len(json_results)):
         specker_id = 50
         out_path = tts_output_files[idx]
 
@@ -240,10 +248,6 @@ if __name__ == "__main__":
         json_results[idx]['out_file'] = out_path
 
         tts_text = json_results[idx]['tts_text']
-
-        # 循环结束后再写回文件
-        with open(Parameter.JSON_PATH, "w", encoding="utf-8") as f:
-            json.dump(json_results, f, ensure_ascii=False, indent=4)
 
         tts_args = [
             f'--debug=0',
@@ -258,7 +262,12 @@ if __name__ == "__main__":
             f'--output-filename={out_path}',
             f'{tts_text}'
         ]
+        # 如需执行TTS，请取消下面的注释
         # subprocess.run(
         #     ['python', './TTS.py']
         #     + tts_args
         # )
+
+    # 循环结束后再写回文件
+    with open(Parameter.JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(json_results, f, ensure_ascii=False, indent=4)
