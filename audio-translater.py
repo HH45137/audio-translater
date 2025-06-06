@@ -17,6 +17,12 @@ llm = None
 BAD_TOKENS = []
 
 
+def normalize(x, data_min, data_max):
+    if data_max == data_min:  # 避免除零错误
+        return 0.5  # 或自定义默认值
+    return (x - data_min) / (data_max - data_min)
+
+
 def get_audio_duration(filepath):
     info = mediainfo(filepath)
     return float(info['duration'])
@@ -49,6 +55,7 @@ def qwen_translate(user_input):
 4. 保留英文角色名称
 5. 输出只能是纯翻译文本
 6. 加入适当的标点符号
+7. 让翻译后的文本念起来自然顺口
 """
 
     # 使用Qwen专用模板（保持原格式）
@@ -203,7 +210,7 @@ if __name__ == "__main__":
         n_gpu_layers=-1,
         n_ctx=8192,
         verbose=False,
-        seed=1919,
+        seed=1818,
         n_threads=Parameter.WORK_THREADS,
         n_batch=512,
         use_mmap=True,
@@ -228,7 +235,8 @@ if __name__ == "__main__":
         f'--tokens={Parameter.AST_DIR}/tokens.txt',
         f'--encoder={Parameter.AST_DIR}/encoder-epoch-34-avg-19.onnx',
         f'--decoder={Parameter.AST_DIR}/decoder-epoch-34-avg-19.onnx',
-        f'--joiner={Parameter.AST_DIR}/joiner-epoch-34-avg-19.onnx'
+        f'--joiner={Parameter.AST_DIR}/joiner-epoch-34-avg-19.onnx',
+        f'--num-threads={Parameter.WORK_THREADS}'
     ]
 
     for idx in range(0, len(ast_input_files), 5):
@@ -256,7 +264,6 @@ if __name__ == "__main__":
         json.dump(json_results, f, ensure_ascii=False, indent=4)
 
     # ------------------ 执行文本转语音 ------------------
-    specker_id = 50
     tts_text = '你好世界，Hello World'
     out_path = './output.wav'
 
@@ -264,7 +271,6 @@ if __name__ == "__main__":
         json_results = json.load(f)
 
     for idx in range(len(json_results)):
-        talk_speed = 0.5
         specker_id = 50
         out_path = tts_output_files[idx]
 
@@ -274,6 +280,10 @@ if __name__ == "__main__":
         json_results[idx]['out_file'] = out_path
 
         tts_text = json_results[idx]['tts_text']
+
+        # 获取音频秒数，到时候直接生成这个长度的音频
+        talk_speed = 1.0
+        json_results[idx]['audio_seconds'] = get_audio_duration(json_results[idx]['in_file'])
 
         tts_args = [
             f'--debug=0',
@@ -295,10 +305,9 @@ if __name__ == "__main__":
             + tts_args
         )
 
-    # 获取音频秒数
+    # 缩放音频为目标长度
     for item in json_results:
-        item['audio_seconds'] = get_audio_duration(item['in_file'])  # 这里获取了秒数，应该是float
-        resize_audio(item['out_file'], item['out_file'], item['audio_seconds'])  # 直接传float，不加[]
+        resize_audio(item['out_file'], item['out_file'], item['audio_seconds'])
         print(f'文件 {item["out_file"]} 已适配原速度\n')
 
     # 循环结束后再写回文件
