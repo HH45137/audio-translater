@@ -263,10 +263,10 @@ if __name__ == "__main__":
             f'{tts_text}'
         ]
         # 如需执行TTS，请取消下面的注释
-        # subprocess.run(
-        #     ['python', './TTS.py']
-        #     + tts_args
-        # )
+        subprocess.run(
+            ['python', './TTS.py']
+            + tts_args
+        )
 
     # 循环结束后再写回文件
     with open(Parameter.JSON_PATH, "w", encoding="utf-8") as f:
