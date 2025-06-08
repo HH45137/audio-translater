@@ -69,7 +69,7 @@ def qwen_translate(user_input):
     # 更严格的生成参数（关键修改）
     output = llm(
         prompt,
-        max_tokens=1024,  # 大幅缩短长度限制
+        max_tokens=2048,  # 大幅缩短长度限制
         temperature=0,  # 完全确定性输出
         top_k=1,  # 仅选择最佳token
         stop=["<|im_end|>"],
@@ -212,9 +212,9 @@ if __name__ == "__main__":
         verbose=False,
         seed=1818,
         n_threads=Parameter.WORK_THREADS,
-        n_batch=512,
-        use_mmap=True,
-        use_mlock=True
+        # n_batch=512,
+        # use_mmap=True,
+        # use_mlock=True
     )
 
     # BAD_TOKENS 初始化
@@ -287,6 +287,7 @@ if __name__ == "__main__":
 
         tts_args = [
             f'--debug=0',
+            f'--provider=cuda',
             f'--kokoro-model={Parameter.TTS_DIR}/model.onnx',
             f'--kokoro-voices={Parameter.TTS_DIR}/voices.bin',
             f'--kokoro-tokens={Parameter.TTS_DIR}/tokens.txt',
