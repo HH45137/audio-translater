@@ -191,7 +191,7 @@ def delete_file(file_path):
 if __name__ == "__main__":
     # ------------------ 初始化 ------------------
     # 首先删除旧的json
-    delete_file(Parameter.JSON_PATH)
+    # delete_file(Parameter.JSON_PATH)
 
     parser = argparse.ArgumentParser(description="Audio auto translater script")
     parser.add_argument('--search-dir', type=str, help='要搜索的根目录')
@@ -231,42 +231,50 @@ if __name__ == "__main__":
     print(tts_output_files)
 
     # ------------------ 执行语音识别文字 ------------------
-    ast_args = [
-        f'--tokens={Parameter.AST_DIR}/tokens.txt',
-        f'--encoder={Parameter.AST_DIR}/encoder-epoch-34-avg-19.onnx',
-        f'--decoder={Parameter.AST_DIR}/decoder-epoch-34-avg-19.onnx',
-        f'--joiner={Parameter.AST_DIR}/joiner-epoch-34-avg-19.onnx',
-        f'--num-threads={Parameter.WORK_THREADS}'
-    ]
-
-    for idx in range(0, len(ast_input_files), 5):
-        batch = ast_input_files[idx:idx + 5]
-        subprocess.run(
-            ['python', './AST.py']
-            + ast_args
-            + batch
-        )
+    if os.path.isfile(Parameter.JSON_PATH):
+        print('JSON文件已存在，跳过语音识别文字步骤！')
+    else:
+        ast_args = [
+            f'--tokens={Parameter.AST_DIR}/tokens.txt',
+            f'--encoder={Parameter.AST_DIR}/encoder-epoch-34-avg-19.onnx',
+            f'--decoder={Parameter.AST_DIR}/decoder-epoch-34-avg-19.onnx',
+            f'--joiner={Parameter.AST_DIR}/joiner-epoch-34-avg-19.onnx',
+            f'--num-threads={Parameter.WORK_THREADS}'
+        ]
+        for idx in range(0, len(ast_input_files), 5):
+            batch = ast_input_files[idx:idx + 5]
+            subprocess.run(
+                ['python', './AST.py']
+                + ast_args
+                + batch
+            )
 
     # ------------------ 执行翻译 ------------------
     with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
         json_results = json.load(f)
 
+    # 是否所有的文件都没有被翻译
+    is_translate = True
     for item in json_results:
-        text = item['ast_text']
-        print(f"原始文本: {text}")
-        translation = qwen_translate(text)
-        translation = remove_think_tags(translation)
-        print(f"翻译结果: {translation}\n")
-        item['tts_text'] = translation
+        if item['tts_text'] != '':
+            is_translate = False
+
+    if is_translate:
+        for item in json_results:
+            text = item['ast_text']
+            print(f"原始文本: {text}")
+            translation = qwen_translate(text)
+            translation = remove_think_tags(translation)
+            print(f"翻译结果: {translation}\n")
+            item['tts_text'] = translation
+    else:
+        print('文字已经翻译完毕，跳过翻译步骤！')
 
     # 循环结束后再写回文件
     with open(Parameter.JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(json_results, f, ensure_ascii=False, indent=4)
 
     # ------------------ 执行文本转语音 ------------------
-    tts_text = '你好世界，Hello World'
-    out_path = './output.wav'
-
     with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
         json_results = json.load(f)
 
