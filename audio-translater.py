@@ -188,6 +188,18 @@ def delete_file(file_path):
         print(f"{file_path} 不存在。")
 
 
+def is_folder_strictly_empty(folder_path):
+    # 检查根目录有没有内容
+    if os.listdir(folder_path):
+        # 不为空
+        return False
+    # 检查所有子文件夹
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        if filenames:
+            return False
+    return True
+
+
 if __name__ == "__main__":
     # ------------------ 初始化 ------------------
     # 首先删除旧的json
@@ -278,47 +290,71 @@ if __name__ == "__main__":
     with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
         json_results = json.load(f)
 
-    for idx in range(len(json_results)):
-        specker_id = 50
-        out_path = tts_output_files[idx]
-
-        dirpath = os.path.dirname(out_path)  # 获取文件的目录部分（忽略文件名和扩展名）
-        os.makedirs(dirpath, exist_ok=True)  # 创建目录，存在则忽略
-
-        json_results[idx]['out_file'] = out_path
-
-        tts_text = json_results[idx]['tts_text']
-
-        # 获取音频秒数，到时候直接生成这个长度的音频
-        talk_speed = 1.0
-        json_results[idx]['audio_seconds'] = get_audio_duration(json_results[idx]['in_file'])
-
-        tts_args = [
-            f'--debug=0',
-            f'--provider=cuda',
-            f'--kokoro-model={Parameter.TTS_DIR}/model.onnx',
-            f'--kokoro-voices={Parameter.TTS_DIR}/voices.bin',
-            f'--kokoro-tokens={Parameter.TTS_DIR}/tokens.txt',
-            f'--kokoro-data-dir={Parameter.TTS_DIR}/espeak-ng-data',
-            f'--kokoro-dict-dir={Parameter.TTS_DIR}/dict',
-            f'--kokoro-lexicon={Parameter.TTS_DIR}/lexicon-us-en.txt,{Parameter.TTS_DIR}/lexicon-zh.txt',
-            f'--num-threads={Parameter.WORK_THREADS}',
-            f'--sid={specker_id}',
-            f'--speed={talk_speed}',
-            f'--output-filename={out_path}',
-            f'{tts_text}'
-        ]
-        # 如需执行TTS，请取消下面的注释
-        subprocess.run(
-            ['python', './TTS.py']
-            + tts_args
-        )
-
-    # 缩放音频为目标长度
+    # 是否所有的文件都没有被TTS
+    is_tts = True
     for item in json_results:
-        resize_audio(item['out_file'], item['out_file'], item['audio_seconds'])
-        print(f'文件 {item["out_file"]} 已适配原速度\n')
+        if not is_folder_strictly_empty():
+            is_tts = False
+
+    if is_tts:
+        for idx in range(len(json_results)):
+            specker_id = 50
+            out_path = tts_output_files[idx]
+
+            dirpath = os.path.dirname(out_path)  # 获取文件的目录部分（忽略文件名和扩展名）
+            os.makedirs(dirpath, exist_ok=True)  # 创建目录，存在则忽略
+
+            json_results[idx]['out_file'] = out_path
+
+            tts_text = json_results[idx]['tts_text']
+
+            # 获取音频秒数，到时候直接生成这个长度的音频
+            talk_speed = 1.0
+            json_results[idx]['audio_seconds'] = get_audio_duration(json_results[idx]['in_file'])
+
+            tts_args = [
+                f'--debug=0',
+                f'--provider=cuda',
+                f'--kokoro-model={Parameter.TTS_DIR}/model.onnx',
+                f'--kokoro-voices={Parameter.TTS_DIR}/voices.bin',
+                f'--kokoro-tokens={Parameter.TTS_DIR}/tokens.txt',
+                f'--kokoro-data-dir={Parameter.TTS_DIR}/espeak-ng-data',
+                f'--kokoro-dict-dir={Parameter.TTS_DIR}/dict',
+                f'--kokoro-lexicon={Parameter.TTS_DIR}/lexicon-us-en.txt,{Parameter.TTS_DIR}/lexicon-zh.txt',
+                f'--num-threads={Parameter.WORK_THREADS}',
+                f'--sid={specker_id}',
+                f'--speed={talk_speed}',
+                f'--output-filename={out_path}',
+                f'{tts_text}'
+            ]
+            # 如需执行TTS，请取消下面的注释
+            subprocess.run(
+                ['python', './TTS.py']
+                + tts_args
+            )
+    else:
+        print('音频已经TTS完毕，跳过该步骤！')
 
     # 循环结束后再写回文件
     with open(Parameter.JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(json_results, f, ensure_ascii=False, indent=4)
+
+    # ------------------ 缩放音频为目标长度 ------------------
+    with open(Parameter.JSON_PATH, "r", encoding="utf-8") as f:
+        json_results = json.load(f)
+
+    # 是否所有的文件都没有被TTS
+    is_scaling = True
+    for item in json_results:
+        if item['out_file'] != '':
+            is_scaling = False
+
+    if is_scaling:
+        # 缩放音频为目标长度
+        for item in json_results:
+            resize_audio(item['out_file'], item['out_file'], item['audio_seconds'])
+            print(f'文件 {item["out_file"]} 已适配原速度\n')
+    else:
+        print('音频长度已经缩放完毕，跳过该步骤！')
+
+    print('该脚本执行结束')
